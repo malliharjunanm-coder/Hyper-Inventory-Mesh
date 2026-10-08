@@ -106,7 +106,7 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
    <div class="g p-3 col-span-2 lg:col-span-1">Margin Lift<div class="text-2xl font-extrabold text-emerald-400">+18.4%</div></div>
   </div>
   <div class="g p-4 space-y-3">
-   <div class="flex justify-between items-center"><h3 class="font-bold" id="invTitle"></h3><button id="restockBtn" class="b hidden" onclick="restock()">📦 Restock Online</button></div>
+   <div class="flex justify-between items-center"><h3 class="font-bold" id="invTitle"></h3><button class="b" onclick="restock()">📦 Restock Online</button></div>
    <div class="overflow-x-auto sc">
     <table class="w-full text-xs text-left">
      <thead class="bg-slate-900 text-slate-400 uppercase text-[10px]"><tr><th class="p-2">Product</th><th class="p-2">Type</th><th class="p-2">Online</th><th class="p-2">Chennai</th><th class="p-2">Vellore</th><th class="p-2">Bangalore</th><th class="p-2">Warehouse</th><th class="p-2">Total</th><th class="p-2">Status</th><th class="p-2"></th></tr></thead>
@@ -153,13 +153,12 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
   <form id="signupForm" onsubmit="submitSignup(event)" class="hidden space-y-3">
    <input id="signupName" required maxlength="60" placeholder="Full name" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
    <input id="signupEmail" type="email" required placeholder="Email address" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
-   <select id="signupRole" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700"><option value="customer">Customer account</option><option value="manager">Manager (demo role)</option><option value="owner">Owner (demo role)</option></select>
    <input id="signupPassword" type="password" required minlength="6" placeholder="Create password (6+ characters)" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
    <input id="signupConfirm" type="password" required minlength="6" placeholder="Confirm password" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
    <button class="b on w-full" type="submit">Create Account and Continue</button>
   </form>
   <p id="authHint" class="text-xs text-slate-400">Create an account to open the store dashboard.</p>
-  <p class="text-[11px] text-amber-300 border border-amber-500/20 rounded-lg p-2">Demo only: accounts and role choices are stored in this browser. Roles are not securely verified; do not use real passwords or treat Manager/Owner roles as production permissions.</p>
+  <p class="text-[11px] text-amber-300 border border-amber-500/20 rounded-lg p-2">Demo only: accounts are stored in this browser's localStorage. This prototype is not secure authentication; do not use a real password.</p>
  </div>
 </div>
 
@@ -276,25 +275,20 @@ function log(s,m){if(st.paused)return;const d=document.createElement('div');d.in
 
 /* views */
 function home(){if(!isLoggedIn()){showLanding();return}$('landing').classList.remove('hidden');$('dash').classList.add('hidden')}
-let authenticated=false;let currentRole='guest';
-function isManager(){return currentRole==='manager'||currentRole==='owner'}
-function canShop(){return currentRole==='customer'||isManager()}
-function requireManager(){if(isManager())return true;toast('Manager permission required','This inventory demo action is available to Manager or Owner roles.');return false}
-function requireShopper(){if(canShop())return true;toast('Customer account required','Guests can browse only. Create or log in to a customer account to use the cart and checkout.');return false}
-function applyRoleUI(){const guest=currentRole==='guest';['n-inv','n-ai'].forEach(id=>$(id).classList.toggle('hidden',!isManager()));$('n-care').classList.toggle('hidden',guest);$('cartBtn').classList.toggle('hidden',!canShop());$('demoTools').classList.toggle('hidden',!isManager())}
+let authenticated=false;
 function isLoggedIn(){return authenticated}
 function showLanding(){$('landing').classList.remove('hidden');$('dash').classList.add('hidden');$('orderTracking').classList.add('hidden')}
 function enter(k){if(!isLoggedIn()){showLanding();openAuth('login');toast('Login required','Log in or create an account to use the dashboard.');return}st.sec=k;st.sub='All';st.q='';$('q').value='';$('landing').classList.add('hidden');$('dash').classList.remove('hidden');log('System',`Sector loaded: ${S[k][1]}. Mesh active across 5 nodes.`);go('store')}
-function go(t){if(!isLoggedIn()){showLanding();openAuth('login');return}if(currentRole==='guest'&&t!=='store'){toast('Guest view only','Guests can browse the store catalog.');t='store'}st.tab=t;['store','inv','ai','care'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('n-'+x).classList.toggle('on',x===t)});renderAll()}
+function go(t){if(!isLoggedIn()){showLanding();openAuth('login');return}st.tab=t;['store','inv','ai','care'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('n-'+x).classList.toggle('on',x===t)});renderAll()}
 
 function openAuth(mode){$('auth').classList.remove('hidden');switchAuth(mode)}
 function closeAuth(){$('auth').classList.add('hidden')}
 function switchAuth(mode){const signup=mode==='signup';$('loginForm').classList.toggle('hidden',signup);$('signupForm').classList.toggle('hidden',!signup);$('authTitle').textContent=signup?'Create Account':'Login';$('authHint').textContent=signup?'Create an account to continue to your dashboard.':'Log in to continue to your dashboard.';$('authLoginTab').classList.toggle('on',!signup);$('authSignupTab').classList.toggle('on',signup)}
-function submitLogin(e){e.preventDefault();const email=$('loginEmail').value.trim().toLowerCase(),password=$('loginPassword').value;const user=demoUsers.find(u=>u.email===email&&u.password===password);if(!user)return toast('Login failed','Check your email and password, or create an account.');login(user.name,user.role||'customer')}
-function submitSignup(e){e.preventDefault();const name=$('signupName').value.trim(),email=$('signupEmail').value.trim().toLowerCase(),password=$('signupPassword').value,confirm=$('signupConfirm').value;if(password.length<6)return toast('Password too short','Use at least 6 characters.');if(password!==confirm)return toast('Passwords do not match','Please confirm the same password.');if(demoUsers.some(u=>u.email===email))return toast('Account exists','Log in with this email instead.');const user={name,email,password,role:$('signupRole').value||'customer'};demoUsers.push(user);try{localStorage.setItem(USERS_KEY,JSON.stringify(demoUsers))}catch{return toast('Storage unavailable','This browser could not save the demo account. Enable localStorage and try again.')}login(user.name,user.role)}
-function guestLogin(){login('Guest','guest')}
-function login(n,role='customer'){authenticated=true;currentRole=role;$('who').textContent=n;$('loginBtn').classList.add('hidden');$('signupBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');$('mainNav').classList.remove('hidden');$('auth').classList.add('hidden');applyRoleUI();toast('Welcome',n==='Guest'?'Continuing as guest':'Logged in as '+n);$('logoutBtn').textContent=n==='Guest'?'Exit Guest':'Log out';enter('elec')}
-function logout(){authenticated=false;currentRole='guest';document.getElementById("logoutBtn").textContent="Log out";document.getElementById("who").textContent="Guest";["loginBtn","signupBtn"].forEach(id=>document.getElementById(id).classList.remove("hidden"));["logoutBtn","mainNav","demoTools","cartBtn"].forEach(id=>document.getElementById(id).classList.add("hidden"));["dash","orderTracking","drawer","paymentModal"].forEach(id=>document.getElementById(id).classList.add("hidden"));document.getElementById("landing").classList.remove("hidden")}
+function submitLogin(e){e.preventDefault();const email=$('loginEmail').value.trim().toLowerCase(),password=$('loginPassword').value;const user=demoUsers.find(u=>u.email===email&&u.password===password);if(!user)return toast('Login failed','Check your email and password, or create an account.');login(user.name)}
+function submitSignup(e){e.preventDefault();const name=$('signupName').value.trim(),email=$('signupEmail').value.trim().toLowerCase(),password=$('signupPassword').value,confirm=$('signupConfirm').value;if(password.length<6)return toast('Password too short','Use at least 6 characters.');if(password!==confirm)return toast('Passwords do not match','Please confirm the same password.');if(demoUsers.some(u=>u.email===email))return toast('Account exists','Log in with this email instead.');const user={name,email,password};demoUsers.push(user);try{localStorage.setItem(USERS_KEY,JSON.stringify(demoUsers))}catch{return toast('Storage unavailable','This browser could not save the demo account. Enable localStorage and try again.')}login(user.name)}
+function guestLogin(){login('Guest')}
+function login(n){authenticated=true;$('who').textContent=n;$('loginBtn').classList.add('hidden');$('signupBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');$('mainNav').classList.remove('hidden');$('demoTools').classList.remove('hidden');$('cartBtn').classList.remove('hidden');$('auth').classList.add('hidden');toast('Welcome',n==='Guest'?'Continuing as guest':'Logged in as '+n);$('logoutBtn').textContent=n==='Guest'?'Exit Guest':'Log out';enter('elec')}
+function logout(){authenticated=false;document.getElementById("logoutBtn").textContent="Log out";document.getElementById("who").textContent="Guest";["loginBtn","signupBtn"].forEach(id=>document.getElementById(id).classList.remove("hidden"));["logoutBtn","mainNav","demoTools","cartBtn"].forEach(id=>document.getElementById(id).classList.add("hidden"));["dash","orderTracking","drawer","paymentModal"].forEach(id=>document.getElementById(id).classList.add("hidden"));document.getElementById("landing").classList.remove("hidden")}
 
 /* render */
 function renderAll(){renderTop();renderProducts();renderBundle();renderInv();renderAgents();renderCart();renderCare()}
@@ -307,7 +301,7 @@ function renderProducts(){
  const l=secProds().filter(p=>(st.sub==='All'||p.sub===st.sub)&&(p.name+p.sub).toLowerCase().includes(st.q));
  $('cnt').textContent=l.length;
  $('grid').innerHTML=l.map(p=>{const r=route(p),bd=p.inv.online>0?`Online: ${p.inv.online}`:r?`Fallback: ${cap(r)} (${p.inv[r]})`:'Out of stock';
- return `<div class="g p-4 flex flex-col justify-between gap-3"><div class="space-y-1"><div class="flex justify-between"><span class="text-3xl">${p.icon}</span><span class="text-[10px] font-mono bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded h-fit">${bd}</span></div><div class="font-bold text-sm">${p.name}</div><div class="text-xs text-slate-400">${p.sub}</div></div><div class="flex justify-between items-center border-t border-slate-800 pt-2"><b class="text-lg">${f(p.price)}</b><button class="b on" ${r&&canShop()?'':'disabled'} onclick="add('${p.id}')">${canShop()?'+ Cart':'Login to shop'}</button></div></div>`}).join('')||'<div class="text-slate-400 text-sm">No products found.</div>';
+ return `<div class="g p-4 flex flex-col justify-between gap-3"><div class="space-y-1"><div class="flex justify-between"><span class="text-3xl">${p.icon}</span><span class="text-[10px] font-mono bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded h-fit">${bd}</span></div><div class="font-bold text-sm">${p.name}</div><div class="text-xs text-slate-400">${p.sub}</div></div><div class="flex justify-between items-center border-t border-slate-800 pt-2"><b class="text-lg">${f(p.price)}</b><button class="b on" ${r?'':'disabled'} onclick="add('${p.id}')">+ Cart</button></div></div>`}).join('')||'<div class="text-slate-400 text-sm">No products found.</div>';
 }
 function bundle(){const a=[...secProds()].sort((x,y)=>y.price-x.price),m=Math.floor(a.length/2)-1;return st.per==='premium'?a.slice(0,3):st.per==='smart'?a.slice(m,m+3):a.slice(-3)}
 function renderBundle(){
@@ -318,9 +312,8 @@ function renderBundle(){
  $('hTitle').textContent=`${S[st.sec][0]} ${S[st.sec][1]}: ${p.n} Picks`;$('hDesc').textContent=p.desc;
 }
 function renderInv(){
- $('restockBtn').classList.toggle('hidden',!isManager());
  $('invTitle').textContent=S[st.sec][1]+' Inventory Control Mesh';
- $('invBody').innerHTML=secProds().map(p=>{const s=status(p);return `<tr class="hover:bg-slate-900/60"><td class="p-2 font-semibold font-sans">${p.icon} ${p.name}</td><td class="p-2 text-slate-400 font-sans">${p.sub}</td>${N.map(n=>`<td class="p-2 ${n==='online'&&!p.inv.online?'text-rose-400 font-bold':''}">${p.inv[n]}</td>`).join('')}<td class="p-2 font-bold">${tot(p)}</td><td class="p-2 font-sans ${s[1]}">${s[0]}</td><td class="p-2">${isManager()?'<button class="b !text-[10px]" onclick="deplete(\'${p.id}\')">Deplete Online</button>':''}</td></tr>`}).join('');
+ $('invBody').innerHTML=secProds().map(p=>{const s=status(p);return `<tr class="hover:bg-slate-900/60"><td class="p-2 font-semibold font-sans">${p.icon} ${p.name}</td><td class="p-2 text-slate-400 font-sans">${p.sub}</td>${N.map(n=>`<td class="p-2 ${n==='online'&&!p.inv.online?'text-rose-400 font-bold':''}">${p.inv[n]}</td>`).join('')}<td class="p-2 font-bold">${tot(p)}</td><td class="p-2 font-sans ${s[1]}">${s[0]}</td><td class="p-2"><button class="b !text-[10px]" onclick="deplete('${p.id}')">Deplete Online</button></td></tr>`}).join('');
  const low=products.filter(p=>status(p)[0]==='Low Stock'||!p.inv.online).length;
  $('kAll').textContent=products.length;$('kLow').textContent=low;$('kOver').textContent=products.filter(over).length;$('kPrev').textContent=st.prev;$('lowb').textContent=low?low+' alerts':'';
 }
@@ -337,8 +330,8 @@ function sendCareMessage(e){e.preventDefault();const input=$('careInput'),text=i
 /* actions */
 function persona(k){st.per=k;st.clicks++;renderTop();renderBundle();renderAgents();log('Persona Agent','Intent shifted to '+P[k].n);log('Pricing Agent',`Rebuilt bundle with ${P[k].d}% discount`);toast('Persona Updated',P[k].n)}
 function search(v){st.q=v.toLowerCase();st.clicks++;renderProducts();if(v.length>2){log('Persona Agent',`Search signal "${v}" captured`);renderAgents()}}
-function add(id,d){if(!requireShopper()||blockIfOrderPending())return;const p=products.find(x=>x.id===id),c=st.cart[id]||(st.cart[id]={q:0,d:0});c.q++;if(d)c.d=d;st.clicks++;renderCart();renderAgents();log('Inventory Agent',`${p.name} reserved via ${cap(route(p)||'none')} node`);toast('Cart Updated',p.name+' added')}
-function addBundle(){if(!requireShopper()||blockIfOrderPending())return;const d=P[st.per].d;bundle().forEach(p=>add(p.id,d));log('Pricing Agent',`Bundle added with ${d}% discount`);$('drawer').classList.remove('hidden')}
+function add(id,d){if(blockIfOrderPending())return;const p=products.find(x=>x.id===id),c=st.cart[id]||(st.cart[id]={q:0,d:0});c.q++;if(d)c.d=d;st.clicks++;renderCart();renderAgents();log('Inventory Agent',`${p.name} reserved via ${cap(route(p)||'none')} node`);toast('Cart Updated',p.name+' added')}
+function addBundle(){if(blockIfOrderPending())return;const d=P[st.per].d;bundle().forEach(p=>add(p.id,d));log('Pricing Agent',`Bundle added with ${d}% discount`);$('drawer').classList.remove('hidden')}
 function renderCart(){
  let sub=0,dis=0,n=0;
  $('cartBox').innerHTML=Object.keys(st.cart).map(id=>{const c=st.cart[id],p=products.find(x=>x.id===id);n+=c.q;sub+=p.price*c.q;dis+=p.price*c.q*c.d/100;
@@ -346,9 +339,9 @@ function renderCart(){
  $('cc').textContent=n;$('cSub').textContent=f(sub);$('cDis').textContent='-'+f(dis);$('cTot').textContent=f(sub-dis);
 }
 function chg(id,d){const c=st.cart[id];c.q+=d;if(c.q<=0)delete st.cart[id];renderCart()}
-function beginPayment(method){if(!requireShopper()||blockIfOrderPending())return;if(!Object.keys(st.cart).length)return toast('Cart empty','Add something first');checkout();selectPayment(method)}
+function beginPayment(method){if(blockIfOrderPending())return;if(!Object.keys(st.cart).length)return toast('Cart empty','Add something first');checkout();selectPayment(method)}
 function checkout(){
- if(!requireShopper()||blockIfOrderPending())return;
+ if(blockIfOrderPending())return;
  const ids=Object.keys(st.cart);if(!ids.length)return toast('Cart empty','Add something first');
  $('paymentAmount').textContent=$('cTot').textContent;
  selectPayment('cod');
@@ -372,7 +365,6 @@ function selectPayment(method){
  }
 }
 function confirmPayment(){
- if(!requireShopper())return;
  const method=paymentMethod;
  if(!method)return;
  if(method==='debit'||method==='credit'){
@@ -394,7 +386,6 @@ function startDeliveryTracking(method){
  setTimeout(()=>{if(activeOrder!==order)return;order.status='delivered';$('deliveryStatus').textContent='Delivered ✓';$('deliveryMessage').textContent='Your order has been delivered. You can place your next order now. Thank you for shopping with OmniMesh!';$('deliveryProgress').style.width='100%';toast('Order Delivered','Order '+order.id+' has been delivered.')},15000);
 }
 function completeCheckout(method){
- if(!requireShopper())return;
  const ids=Object.keys(st.cart);let rt=0;
  ids.forEach(id=>{const p=products.find(x=>x.id===id);for(let i=0;i<st.cart[id].q;i++){const r=route(p);if(r==='online')p.inv.online--;else if(r){p.inv[r]--;rt++;st.prev++;log('Inventory Agent',`${p.name}: online empty, fulfilled from ${cap(r)}`)}}});
  st.cart={};renderAll();closePayment();$('drawer').classList.add('hidden');
@@ -402,16 +393,16 @@ function completeCheckout(method){
  const label={cod:'Cash on Delivery',debit:'Debit Card (Demo)',credit:'Credit Card (Demo)',qr:'QR Scan (Demo)'}[method];
  toast('Order Confirmed!',label+' · '+(rt?`${rt} item(s) fulfilled via nearby store node.`:'Fulfilled from online stock.'));
 }
-function deplete(id){if(!requireManager())return;const p=products.find(x=>x.id===id);p.inv.online=0;log('Inventory Agent',`${p.name} online = 0. Routing to ${cap(route(p)||'none')}`);renderAll()}
-function restock(){if(!requireManager())return;secProds().forEach(p=>p.inv.online=Math.max(p.inv.online,p.b+5));log('Inventory Agent','Online nodes restocked');renderAll()}
+function deplete(id){const p=products.find(x=>x.id===id);p.inv.online=0;log('Inventory Agent',`${p.name} online = 0. Routing to ${cap(route(p)||'none')}`);renderAll()}
+function restock(){secProds().forEach(p=>p.inv.online=Math.max(p.inv.online,p.b+5));log('Inventory Agent','Online nodes restocked');renderAll()}
 
 /* demo controls */
-function ensure(){if(!isLoggedIn()){showLanding();openAuth('login');toast('Login required','Log in or create an account to use demo controls.');return false}if(!requireManager())return false;if($('dash').classList.contains('hidden'))enter(st.sec);return true}
+function ensure(){if(!isLoggedIn()){showLanding();openAuth('login');toast('Login required','Log in or create an account to use demo controls.');return false}if($('dash').classList.contains('hidden'))enter(st.sec);return true}
 function rush(){if(!ensure())return;st.per='premium';const affected={};let changed=0;Object.keys(R).forEach(k=>{const items=products.filter(p=>p.sec===k).sort((a,b)=>b.price-a.price).slice(0,3);items.forEach(p=>{if(p.inv.online>1){p.inv.online=1;changed++;affected[k]=(affected[k]||0)+1}})});st.clicks+=8;go('store');const labels=Object.keys(affected).map(k=>S[k][1]+' ('+affected[k]+')');$('rushMessage').textContent='Simulated a sudden demand spike. Online stock was reduced to 1 unit for '+changed+' high-demand products across '+Object.keys(affected).length+' of 9 sectors: '+labels.join(', ')+'. Open Inventory to inspect the changed quantities.';$('rushBanner').classList.remove('hidden');log('Persona Agent','Demand surge simulated across all 9 retail sectors');log('Inventory Agent',changed+' high-demand products now have 1 online unit across '+Object.keys(affected).length+' sectors');log('Pricing Agent','Bundles shifted to surplus items across all sectors');toast('9-Sector Demand Rush',changed+' products now show reduced online stock. See the banner and Inventory.')}
-function stockout(){if(!ensure())return;const a=secProds().filter(p=>p.inv.online>0),p=a[Math.floor(Math.random()*a.length)];if(!p)return;p.inv.online=0;go('inv');log('Inventory Agent',`STOCKOUT: ${p.name}. Fallback ${cap(route(p)||'none')}`);toast('Stockout Simulated',`${p.name} → ${cap(route(p)||'none')}`)}
-function abandon(){if(!ensure())return;const a=secProds(),p=a[Math.floor(Math.random()*a.length)];add(p.id,10);go('store');$('drawer').classList.remove('hidden');log('Pricing Agent','Abandoned cart: 10% coupon for '+p.name);toast('Abandoned Cart','Dynamic discount coupon generated!')}
-function reset(){if(!requireManager())return;products.forEach((p,i)=>p.inv={...base[i]});st.cart={};st.prev=14;st.clicks=0;$('rushBanner').classList.add('hidden');$('rushMessage').textContent='';renderAll();toast('Reset','Baseline inventory restored')}
-function pause(){if(!requireManager())return;st.paused=!st.paused;$('pz').textContent=st.paused?'▶ Resume':'⏸ Pause'}
+function stockout(){ensure();const a=secProds().filter(p=>p.inv.online>0),p=a[Math.floor(Math.random()*a.length)];if(!p)return;p.inv.online=0;go('inv');log('Inventory Agent',`STOCKOUT: ${p.name}. Fallback ${cap(route(p)||'none')}`);toast('Stockout Simulated',`${p.name} → ${cap(route(p)||'none')}`)}
+function abandon(){ensure();const a=secProds(),p=a[Math.floor(Math.random()*a.length)];add(p.id,10);go('store');$('drawer').classList.remove('hidden');log('Pricing Agent','Abandoned cart: 10% coupon for '+p.name);toast('Abandoned Cart','Dynamic discount coupon generated!')}
+function reset(){products.forEach((p,i)=>p.inv={...base[i]});st.cart={};st.prev=14;st.clicks=0;$('rushBanner').classList.add('hidden');$('rushMessage').textContent='';renderAll();toast('Reset','Baseline inventory restored')}
+function pause(){st.paused=!st.paused;$('pz').textContent=st.paused?'▶ Resume':'⏸ Pause'}
 
 $('secGrid').innerHTML=Object.keys(S).map(k=>`<button class="g p-4 text-left hover:border-indigo-400 transition" onclick="enter('${k}')"><div class="text-3xl">${S[k][0]}</div><div class="font-bold text-sm mt-1">${S[k][1]}</div><div class="text-[10px] text-slate-400 mt-1">${S[k][2].join(' · ')}</div></button>`).join('');
 renderCart();
