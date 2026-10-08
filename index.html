@@ -55,6 +55,7 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
   <div class="flex flex-wrap gap-3 pt-2">
    <button class="b on !text-sm !px-5 !py-3" onclick="openAuth('login')">Login</button>
    <button class="b !text-sm !px-5 !py-3" onclick="openAuth('signup')">Create Account</button>
+   <button class="b !text-sm !px-5 !py-3" onclick="guestLogin()">Continue as Guest</button>
   </div>
   <div class="grid sm:grid-cols-3 gap-3 pt-4 text-sm">
    <div class="g p-4">🛍️ <b>Shop 9 sectors</b><p class="text-xs text-slate-400 mt-1">225 products across everyday categories.</p></div>
@@ -67,6 +68,7 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
 
 <div id="dash" class="hidden space-y-5">
  <div id="secBar" class="flex gap-2 overflow-x-auto sc pb-2"></div>
+ <div id="rushBanner" class="hidden g p-4 border border-amber-400/40 bg-amber-950/30" role="status" aria-live="polite"><div class="font-bold text-amber-300">🔥 Demand Rush Active</div><p id="rushMessage" class="text-sm text-slate-200 mt-1"></p></div>
 
  <section id="t-store" class="space-y-5">
   <div class="g p-4 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
@@ -146,6 +148,7 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
    <input id="loginEmail" type="email" required placeholder="Email address" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
    <input id="loginPassword" type="password" required placeholder="Password" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
    <button class="b on w-full" type="submit">Login and Open Dashboard</button>
+   <button class="b w-full" type="button" onclick="guestLogin()">Continue as Guest</button>
   </form>
   <form id="signupForm" onsubmit="submitSignup(event)" class="hidden space-y-3">
    <input id="signupName" required maxlength="60" placeholder="Full name" class="w-full bg-slate-950 text-sm rounded-lg px-3 py-2 border border-slate-700">
@@ -155,6 +158,7 @@ body{background:#020617;color:#f1f5f9;font-family:system-ui,sans-serif;padding-t
    <button class="b on w-full" type="submit">Create Account and Continue</button>
   </form>
   <p id="authHint" class="text-xs text-slate-400">Create an account to open the store dashboard.</p>
+  <p class="text-[11px] text-amber-300 border border-amber-500/20 rounded-lg p-2">Demo only: accounts are stored in this browser's localStorage. This prototype is not secure authentication; do not use a real password.</p>
  </div>
 </div>
 
@@ -253,7 +257,9 @@ Object.keys(R).forEach(k=>R[k].forEach((s,i)=>{const a=s.split('|'),price=+a[2],
 const base=products.map(p=>({...p.inv}));
 const st={sec:'elec',sub:'All',per:'premium',q:'',tab:'store',cart:{},paused:false,prev:14,clicks:0};
 let activeOrder=null;
-const demoUsers=[];
+const USERS_KEY='omnimesh_demo_users_v1';
+function loadDemoUsers(){try{const value=JSON.parse(localStorage.getItem(USERS_KEY)||'[]');return Array.isArray(value)?value.filter(u=>u&&typeof u.email==='string'&&typeof u.password==='string'&&typeof u.name==='string'):[]}catch{return []}}
+let demoUsers=loadDemoUsers();
 let careMessages=[{from:'Customer Care',text:'Hi! How can we help you today?'}];
 function orderIsPending(){return activeOrder&&activeOrder.status!=='delivered'}
 function blockIfOrderPending(){if(!orderIsPending())return false;toast('Order in Progress','Please wait until your current order is delivered before placing another order.');return true}
@@ -268,17 +274,21 @@ function toast(t,m){$('tT').textContent=t;$('tM').textContent=m;const e=$('toast
 function log(s,m){if(st.paused)return;const d=document.createElement('div');d.innerHTML=`<span class="text-slate-600">[${new Date().toLocaleTimeString()}]</span> <b class="text-cyan-400">[${s}]</b> ${m}`;const b=$('logbox');b.appendChild(d);b.scrollTop=b.scrollHeight}
 
 /* views */
-function home(){$('landing').classList.remove('hidden');$('dash').classList.add('hidden')}
-function enter(k){st.sec=k;st.sub='All';st.q='';$('q').value='';$('landing').classList.add('hidden');$('dash').classList.remove('hidden');log('System',`Sector loaded: ${S[k][1]}. Mesh active across 5 nodes.`);go('store')}
-function go(t){st.tab=t;['store','inv','ai','care'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('n-'+x).classList.toggle('on',x===t)});renderAll()}
+function home(){if(!isLoggedIn()){showLanding();return}$('landing').classList.remove('hidden');$('dash').classList.add('hidden')}
+let authenticated=false;
+function isLoggedIn(){return authenticated}
+function showLanding(){$('landing').classList.remove('hidden');$('dash').classList.add('hidden');$('orderTracking').classList.add('hidden')}
+function enter(k){if(!isLoggedIn()){showLanding();openAuth('login');toast('Login required','Log in or create an account to use the dashboard.');return}st.sec=k;st.sub='All';st.q='';$('q').value='';$('landing').classList.add('hidden');$('dash').classList.remove('hidden');log('System',`Sector loaded: ${S[k][1]}. Mesh active across 5 nodes.`);go('store')}
+function go(t){if(!isLoggedIn()){showLanding();openAuth('login');return}st.tab=t;['store','inv','ai','care'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('n-'+x).classList.toggle('on',x===t)});renderAll()}
 
 function openAuth(mode){$('auth').classList.remove('hidden');switchAuth(mode)}
 function closeAuth(){$('auth').classList.add('hidden')}
 function switchAuth(mode){const signup=mode==='signup';$('loginForm').classList.toggle('hidden',signup);$('signupForm').classList.toggle('hidden',!signup);$('authTitle').textContent=signup?'Create Account':'Login';$('authHint').textContent=signup?'Create an account to continue to your dashboard.':'Log in to continue to your dashboard.';$('authLoginTab').classList.toggle('on',!signup);$('authSignupTab').classList.toggle('on',signup)}
 function submitLogin(e){e.preventDefault();const email=$('loginEmail').value.trim().toLowerCase(),password=$('loginPassword').value;const user=demoUsers.find(u=>u.email===email&&u.password===password);if(!user)return toast('Login failed','Check your email and password, or create an account.');login(user.name)}
-function submitSignup(e){e.preventDefault();const name=$('signupName').value.trim(),email=$('signupEmail').value.trim().toLowerCase(),password=$('signupPassword').value,confirm=$('signupConfirm').value;if(password.length<6)return toast('Password too short','Use at least 6 characters.');if(password!==confirm)return toast('Passwords do not match','Please confirm the same password.');if(demoUsers.some(u=>u.email===email))return toast('Account exists','Log in with this email instead.');const user={name,email,password};demoUsers.push(user);login(user.name)}
-function login(n){$('who').textContent=n;$('loginBtn').classList.add('hidden');$('signupBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');$('mainNav').classList.remove('hidden');$('demoTools').classList.remove('hidden');$('cartBtn').classList.remove('hidden');$('auth').classList.add('hidden');toast('Welcome','Logged in as '+n);enter('elec')}
-function logout(){$('who').textContent='Guest';$('loginBtn').classList.remove('hidden');$('signupBtn').classList.remove('hidden');$('logoutBtn').classList.add('hidden');$('mainNav').classList.add('hidden');$('demoTools').classList.add('hidden');$('cartBtn').classList.add('hidden');$('dash').classList.add('hidden');$('landing').classList.remove('hidden')}
+function submitSignup(e){e.preventDefault();const name=$('signupName').value.trim(),email=$('signupEmail').value.trim().toLowerCase(),password=$('signupPassword').value,confirm=$('signupConfirm').value;if(password.length<6)return toast('Password too short','Use at least 6 characters.');if(password!==confirm)return toast('Passwords do not match','Please confirm the same password.');if(demoUsers.some(u=>u.email===email))return toast('Account exists','Log in with this email instead.');const user={name,email,password};demoUsers.push(user);try{localStorage.setItem(USERS_KEY,JSON.stringify(demoUsers))}catch{return toast('Storage unavailable','This browser could not save the demo account. Enable localStorage and try again.')}login(user.name)}
+function guestLogin(){login('Guest')}
+function login(n){authenticated=true;$('who').textContent=n;$('loginBtn').classList.add('hidden');$('signupBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');$('mainNav').classList.remove('hidden');$('demoTools').classList.remove('hidden');$('cartBtn').classList.remove('hidden');$('auth').classList.add('hidden');toast('Welcome',n==='Guest'?'Continuing as guest':'Logged in as '+n);$('logoutBtn').textContent=n==='Guest'?'Exit Guest':'Log out';enter('elec')}
+function logout(){authenticated=false;document.getElementById("logoutBtn").textContent="Log out";document.getElementById("who").textContent="Guest";["loginBtn","signupBtn"].forEach(id=>document.getElementById(id).classList.remove("hidden"));["logoutBtn","mainNav","demoTools","cartBtn"].forEach(id=>document.getElementById(id).classList.add("hidden"));["dash","orderTracking","drawer","paymentModal"].forEach(id=>document.getElementById(id).classList.add("hidden"));document.getElementById("landing").classList.remove("hidden")}
 
 /* render */
 function renderAll(){renderTop();renderProducts();renderBundle();renderInv();renderAgents();renderCart();renderCare()}
@@ -387,14 +397,16 @@ function deplete(id){const p=products.find(x=>x.id===id);p.inv.online=0;log('Inv
 function restock(){secProds().forEach(p=>p.inv.online=Math.max(p.inv.online,p.b+5));log('Inventory Agent','Online nodes restocked');renderAll()}
 
 /* demo controls */
-function ensure(){if($('dash').classList.contains('hidden'))enter(st.sec)}
-function rush(){ensure();st.per='premium';Object.keys(R).forEach(k=>products.filter(p=>p.sec===k).sort((a,b)=>b.price-a.price).slice(0,3).forEach(p=>p.inv.online=Math.min(p.inv.online,1)));st.clicks+=8;go('store');log('Persona Agent','Demand surge simulated across all 9 retail sectors');log('Pricing Agent','Bundles shifted to surplus items across all sectors');toast('9-Sector Demand Rush','Top products across all retail sectors are nearly sold out online')}
+function ensure(){if(!isLoggedIn()){showLanding();openAuth('login');toast('Login required','Log in or create an account to use demo controls.');return false}if($('dash').classList.contains('hidden'))enter(st.sec);return true}
+function rush(){if(!ensure())return;st.per='premium';const affected={};let changed=0;Object.keys(R).forEach(k=>{const items=products.filter(p=>p.sec===k).sort((a,b)=>b.price-a.price).slice(0,3);items.forEach(p=>{if(p.inv.online>1){p.inv.online=1;changed++;affected[k]=(affected[k]||0)+1}})});st.clicks+=8;go('store');const labels=Object.keys(affected).map(k=>S[k][1]+' ('+affected[k]+')');$('rushMessage').textContent='Simulated a sudden demand spike. Online stock was reduced to 1 unit for '+changed+' high-demand products across '+Object.keys(affected).length+' of 9 sectors: '+labels.join(', ')+'. Open Inventory to inspect the changed quantities.';$('rushBanner').classList.remove('hidden');log('Persona Agent','Demand surge simulated across all 9 retail sectors');log('Inventory Agent',changed+' high-demand products now have 1 online unit across '+Object.keys(affected).length+' sectors');log('Pricing Agent','Bundles shifted to surplus items across all sectors');toast('9-Sector Demand Rush',changed+' products now show reduced online stock. See the banner and Inventory.')}
 function stockout(){ensure();const a=secProds().filter(p=>p.inv.online>0),p=a[Math.floor(Math.random()*a.length)];if(!p)return;p.inv.online=0;go('inv');log('Inventory Agent',`STOCKOUT: ${p.name}. Fallback ${cap(route(p)||'none')}`);toast('Stockout Simulated',`${p.name} → ${cap(route(p)||'none')}`)}
 function abandon(){ensure();const a=secProds(),p=a[Math.floor(Math.random()*a.length)];add(p.id,10);go('store');$('drawer').classList.remove('hidden');log('Pricing Agent','Abandoned cart: 10% coupon for '+p.name);toast('Abandoned Cart','Dynamic discount coupon generated!')}
-function reset(){products.forEach((p,i)=>p.inv={...base[i]});st.cart={};st.prev=14;st.clicks=0;renderAll();toast('Reset','Baseline inventory restored')}
+function reset(){products.forEach((p,i)=>p.inv={...base[i]});st.cart={};st.prev=14;st.clicks=0;$('rushBanner').classList.add('hidden');$('rushMessage').textContent='';renderAll();toast('Reset','Baseline inventory restored')}
 function pause(){st.paused=!st.paused;$('pz').textContent=st.paused?'▶ Resume':'⏸ Pause'}
 
 $('secGrid').innerHTML=Object.keys(S).map(k=>`<button class="g p-4 text-left hover:border-indigo-400 transition" onclick="enter('${k}')"><div class="text-3xl">${S[k][0]}</div><div class="font-bold text-sm mt-1">${S[k][1]}</div><div class="text-[10px] text-slate-400 mt-1">${S[k][2].join(' · ')}</div></button>`).join('');
 renderCart();
 </script>
 </body></html>
+
+
